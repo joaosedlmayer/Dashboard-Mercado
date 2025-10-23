@@ -1,4 +1,4 @@
-import pyettj.ettj 
+import pyettj.ettj as ettj
 import datetime as dt 
 import pandas as pd 
 import yfinance as yf 
@@ -304,3 +304,4 @@ try:
 except Exception as e:
     st.error(f"Ocorreu um erro ao carregar os dados: {e}")
     st.exception(e) # Mostra o traceback completo para debug
+
