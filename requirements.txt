@@ -1,5 +1,6 @@
-pyettj
-datetime
+streamlit
 pandas
 yfinance
-streamlit
+pyettj
+altair
+lxml
