@@ -4,18 +4,17 @@ Created on Thu Oct 23 14:44:04 2025
 
 @author: joaos
 """
-
-import pyettj.ettj as ettj 
+import pyettj.ettj 
 import datetime as dt 
 import pandas as pd 
 import yfinance as yf 
 import streamlit as st
-import altair as alt  # <-- ADICIONADO AQUI
+import altair as alt
 
 st.set_page_config(layout="wide")
 st.title("Dashboard de Mercado Financeiro")
 
-
+# --- FUNÇÃO CACHEADA PARA DADOS ETTJ ---
 @st.cache_data
 def get_ettj_data():
     hoje = dt.date.today()
@@ -73,7 +72,7 @@ def get_ettj_data():
     
     return dfs_por_curva
 
-
+# --- FUNÇÃO CACHEADA PARA DADOS YFINANCE ---
 @st.cache_data
 def get_mercado_data():
     tickers = {
@@ -156,22 +155,36 @@ def get_mercado_data():
     
     return dataframes_mercado
 
+# --- CARREGA OS DADOS (USANDO CACHE) ---
 try:
     dfs_por_curva = get_ettj_data()
     dataframes_mercado = get_mercado_data()
 
-   
-    st.header("Curvas de Juros (ETTJ)")
+    # --- SEÇÃO 1: CURVAS DE JUROS (COM ALTERAÇÕES) ---
+    st.header("Principais Curvas de Juros (ETTJ)")
     st.write("Evolução da curva em 3 datas (Ontem, Semana Passada, Mês Passado)")
     
-    for nome_curva, df_curva_original in dfs_por_curva.items():
+    # --- NOVO BLOCO DE FILTRAGEM ---
+    # 1. Define as 3 curvas que queremos mostrar
+    curvas_principais = [
+        'DI x pré 252',   # Juros Pré-Fixados
+        'DI x IPCA 252',  # Juros Reais (Inflação)
+        'DI x dólar 360'  # Cupom Cambial (Dólar)
+    ]
+    
+    # 2. Filtra o dicionário para conter apenas essas curvas
+    curvas_filtradas = {
+        nome: df for nome, df in dfs_por_curva.items() 
+        if nome in curvas_principais
+    }
+    # --- FIM DO NOVO BLOCO ---
+    
+    # 3. Itera sobre o DICIONÁRIO FILTRADO
+    for nome_curva, df_curva_original in curvas_filtradas.items():
         st.subheader(nome_curva)
         
         df_filtrado = df_curva_original.loc[df_curva_original.index <= 2520].copy()
         df_interpolado = df_filtrado.interpolate(method='linear', limit_direction='both')
-        
-      
-        
         
         df_long_para_plotar = df_interpolado.reset_index().melt(
             id_vars='Dias Corridos', 
@@ -179,26 +192,18 @@ try:
             value_name='Taxa'
         )
         
-        
         chart = alt.Chart(df_long_para_plotar).mark_line().encode(
-            
             x=alt.X('Dias Corridos'), 
-            
-            
-           
             y=alt.Y('Taxa', scale=alt.Scale(zero=False)),
-            
-            
             color='Data',
-            
             tooltip=['Data', 'Dias Corridos', 'Taxa']
-        ).interactive() # Permite zoom e pan
+        ).interactive()
         
-
         st.altair_chart(chart, use_container_width=True)
-   
+    # --- FIM DAS ALTERAÇÕES ---
 
 
+    # --- SEÇÃO 2: MERCADOS GLOBAIS ---
     st.header("Mercados Globais (YFinance - Último Ano)")
 
     for assunto, df_mercado in dataframes_mercado.items():
