@@ -1,4 +1,11 @@
-import pyettj.ettj as ettj
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct 23 14:44:04 2025
+
+@author: joaos
+"""
+
+import pyettj.ettj 
 import datetime as dt 
 import pandas as pd 
 import yfinance as yf 
@@ -8,44 +15,33 @@ import altair as alt
 st.set_page_config(layout="wide")
 st.title("Dashboard de Mercado Financeiro")
 
-# --- 1. DICIONÁRIO DE TRADUÇÃO DE TICKERS ---
-# Mapeia tickers para nomes legíveis
 ticker_names = {
-    # Bolsas
     '^BVSP': 'Ibovespa', '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^FCHI': 'CAC 40 (França)',
     '^FTSE': 'FTSE 100 (UK)', '^GDAXI': 'DAX (Alemanha)', '^N225': 'Nikkei (Japão)',
     '^HSI': 'Hang Seng (Hong Kong)', '^GSPTSE': 'S&P/TSX (Canadá)', '^AXJO': 'ASX 200 (Austrália)',
     '^NSEI': 'NIFTY 50 (Índia)', '000001.SS': 'Shanghai Composite',
     
-    # Moedas
     'BRL=X': 'Dólar (USD/BRL)', 'EURBRL=X': 'Euro (EUR/BRL)', 'GBPBRL=X': 'Libra (GBP/BRL)',
     'JPYBRL=X': 'Iene (JPY/BRL)', 'AUDBRL=X': 'Dólar Aus. (AUD/BRL)', 'CADBRL=X': 'Dólar Can. (CAD/BRL)',
     'CHFBRL=X': 'Franco Suíço (CHF/BRL)', 'CNYBRL=X': 'Yuan Chinês (CNY/BRL)',
     
-    # Commodity Indices
     'DBC': 'Invesco DB Commodity Index', 'GSG': 'iShares S&P GSCI Commodity', 'BDRY': 'Baltic Dry Index (ETF)',
     
-    # Commodity Agricolas
     'LE=F': 'Boi Gordo (Live Cattle)', 'HE=F': 'Suíno (Lean Hogs)', 'CC=F': 'Cacau', 'KC=F': 'Café',
     'ZC=F': 'Milho (Corn)', 'CT=F': 'Algodão (Cotton)', 'OJ=F': 'Suco de Laranja',
     'ZS=F': 'Soja (Soybeans)', 'SB=F': 'Açúcar (Sugar)', 'ZW=F': 'Trigo (Wheat)',
     
-    # Commodity Metais
     'GC=F': 'Ouro (Gold)', 'SI=F': 'Prata (Silver)', 'HG=F': 'Cobre (Copper)', 'JJU': 'Alumínio (ETN)',
     'PA=F': 'Paládio (Palladium)',
     
-    # Commodity Energia
     'CL=F': 'Petróleo (WTI)', 'BZ=F': 'Petróleo (Brent)', 'NG=F': 'Gás Natural (US)',
     'HO=F': 'Óleo de Aquecimento', 'RB=F': 'Gasolina (RBOB)', 'TTF=F': 'Gás Natural (Holanda TTF)',
     'EH=F': 'Etanol',
     
-    # Crypto
     'BTC-USD': 'Bitcoin (USD)', 'ETH-USD': 'Ethereum (USD)',
     'BTC-BRL': 'Bitcoin (BRL)', 'ETH-BRL': 'Ethereum (BRL)'
 }
 
-
-# --- FUNÇÃO CACHEADA PARA DADOS ETTJ ---
 @st.cache_data
 def get_ettj_data():
     hoje = dt.date.today()
@@ -103,7 +99,6 @@ def get_ettj_data():
     
     return dfs_por_curva
 
-# --- FUNÇÃO CACHEADA PARA DADOS YFINANCE (MODIFICADA) ---
 @st.cache_data
 def get_mercado_data(ticker_map):
     tickers = {
@@ -139,30 +134,23 @@ def get_mercado_data(ticker_map):
     data_diaria = data_diaria.ffill()
     data_diaria = data_diaria.dropna(how='all')
 
-    # Dicionários para os dados dos gráficos (renomeados)
     dataframes_mercado_renomeados = {}
-    
-    # Lista para a tabela de performance
     performance_list = []
     
-    # Processa grupos e cálculos
     grupos_para_iterar = list(tickers.keys())
     
-    # Dicionário temporário para cálculos
     dataframes_mercado_orig = {}
     for group_name, group_tickers in tickers.items():
         available_tickers = [t for t in group_tickers if t in data_diaria.columns]
         if available_tickers:
             dataframes_mercado_orig[group_name] = data_diaria[available_tickers].copy()
 
-    # Cálculo CNY/BRL
     if 'Moedas_em_BRL' in dataframes_mercado_orig:
         df_moedas = dataframes_mercado_orig['Moedas_em_BRL']
         if 'BRL=X' in df_moedas.columns and 'CNY=X' in df_moedas.columns:
             df_moedas['CNYBRL=X'] = df_moedas['BRL=X'] / df_moedas['CNY=X']
             df_moedas.drop(columns=['CNY=X'], inplace=True)
 
-    # Cálculo Crypto BRL
     if ('Moedas_em_BRL' in dataframes_mercado_orig and 
         'Crypto_USD' in dataframes_mercado_orig and 
         'BRL=X' in dataframes_mercado_orig['Moedas_em_BRL'].columns):
@@ -174,53 +162,47 @@ def get_mercado_data(ticker_map):
         crypto_brl = crypto_brl.rename(columns={'BTC-USD': 'BTC-BRL', 'ETH-USD': 'ETH-BRL'})
         
         dataframes_mercado_orig['Crypto_BRL'] = crypto_brl
-        grupos_para_iterar.append('Crypto_BRL') # Adiciona o novo grupo
-        grupos_para_iterar.remove('Crypto_USD') # Remove o grupo antigo
+        grupos_para_iterar.append('Crypto_BRL')
+        grupos_para_iterar.remove('Crypto_USD')
 
-    # --- 2. CÁLCULO DA TABELA DE PERFORMANCE ---
     for group_name in grupos_para_iterar:
         df = dataframes_mercado_orig[group_name]
         
-        # Renomeia o DF para os gráficos
         df_renomeado = df.rename(columns=ticker_map)
         dataframes_mercado_renomeados[group_name] = df_renomeado
         
-        # Cálculo de Performance
         today = df.index[-1]
         last = df.iloc[-1]
         
-        # Preços de referência
-        yoy_price = df.iloc[0] # Preço de 1 ano atrás (primeiro dia do DF)
-        mom_price = df.asof(today - pd.DateOffset(months=1)) # Preço de 1 mês atrás
-        ytd_price = df.asof(f"{today.year}-01-01") # Preço do 1º dia do ano
-        mtd_price = df.asof(today.replace(day=1)) # Preço do 1º dia do mês
+        yoy_price = df.iloc[0]
+        mom_price = df.asof(today - pd.DateOffset(months=1))
+        ytd_price = df.asof(f"{today.year}-01-01")
+        mtd_price = df.asof(today.replace(day=1))
         
-        # Cria DF de performance
         perf = pd.DataFrame({'Último': last})
         perf['YoY %'] = (last / yoy_price) - 1
         perf['MoM %'] = (last / mom_price) - 1
         perf['YTD %'] = (last / ytd_price) - 1
         perf['MTD %'] = (last / mtd_price) - 1
         
+        if group_name == 'Moedas_em_BRL' or group_name == 'Crypto_BRL':
+            perf_cols = ['YoY %', 'MoM %', 'YTD %', 'MTD %']
+            perf[perf_cols] = perf[perf_cols] * -1
+        
         perf['Grupo'] = group_name
         performance_list.append(perf)
 
-    # Concatena a tabela de performance final
     performance_table = pd.concat(performance_list)
     performance_table.index.name = "Ativo"
     
-    # Renomeia o índice da tabela de performance
     performance_table = performance_table.rename(index=ticker_map)
     
     return dataframes_mercado_renomeados, performance_table
 
-# --- CARREGA OS DADOS (USANDO CACHE) ---
 try:
     dfs_por_curva = get_ettj_data()
-    # Passa o ticker_names para a função
     dataframes_mercado, performance_table = get_mercado_data(ticker_names)
 
-    # --- SEÇÃO 1: CURVAS DE JUROS (COM ALTERAÇÕES) ---
     st.header("Principais Curvas de Juros (ETTJ)")
     st.write("Evolução da curva em 3 datas (Ontem, Semana Passada, Mês Passado)")
     
@@ -252,10 +234,8 @@ try:
         
         st.altair_chart(chart, use_container_width=True)
 
-    # --- SEÇÃO 2: PERFORMANCE RECENTE (TABELONA) ---
     st.header("Performance Recente")
     
-    # Formatação da tabela
     formatters = {
         'Último': '{:,.2f}',
         'YoY %': '{:,.2%}',
@@ -264,10 +244,9 @@ try:
         'MTD %': '{:,.2%}'
     }
     
-    # Separa por grupo
     grupos_performance = performance_table['Grupo'].unique()
     for group in grupos_performance:
-        st.subheader(group.replace("_", " ")) # Ex: Moedas_em_BRL -> Moedas em BRL
+        st.subheader(group.replace("_", " "))
         
         df_to_show = performance_table[
             performance_table['Grupo'] == group
@@ -278,14 +257,11 @@ try:
             use_container_width=True
         )
 
-    # --- SEÇÃO 3: MERCADOS GLOBAIS (GRÁFICOS) ---
     st.header("Mercados Globais (YFinance - Último Ano)")
 
     for assunto, df_mercado in dataframes_mercado.items():
-        # Renomeia o título do subheader
         st.subheader(assunto.replace("_", " "))
         
-        # A lista de ativos agora tem os nomes corretos
         lista_de_ativos = df_mercado.columns
         
         if len(lista_de_ativos) > 0:
@@ -296,12 +272,10 @@ try:
             )
             
             if ativo_selecionado:
-                # O gráfico agora usa o nome correto
                 st.line_chart(df_mercado[ativo_selecionado])
         else:
             st.write(f"Nenhum dado encontrado para {assunto}.")
 
 except Exception as e:
     st.error(f"Ocorreu um erro ao carregar os dados: {e}")
-    st.exception(e) # Mostra o traceback completo para debug
-
+    st.exception(e)
