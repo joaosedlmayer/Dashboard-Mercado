@@ -272,7 +272,18 @@ try:
             )
             
             if ativo_selecionado:
-                st.line_chart(df_mercado[ativo_selecionado])
+                
+                df_para_plotar = df_mercado[[ativo_selecionado]].reset_index()
+                df_para_plotar.columns = ['Data', 'Preço']
+
+                chart = alt.Chart(df_para_plotar).mark_line().encode(
+                    x=alt.X('Data'),
+                    y=alt.Y('Preço', scale=alt.Scale(zero=False)),
+                    tooltip=['Data', 'Preço']
+                ).interactive()
+                
+                st.altair_chart(chart, use_container_width=True)
+                
         else:
             st.write(f"Nenhum dado encontrado para {assunto}.")
 
