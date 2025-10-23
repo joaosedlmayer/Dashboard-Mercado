@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Oct 23 14:44:04 2025
-
-@author: joaos
-"""
-
 import pyettj.ettj 
 import datetime as dt 
 import pandas as pd 
@@ -15,6 +8,8 @@ import altair as alt
 st.set_page_config(layout="wide")
 st.title("Dashboard de Mercado Financeiro")
 
+# --- 1. DICIONÁRIO DE TRADUÇÃO DE TICKERS ---
+# Mapeia tickers para nomes legíveis
 ticker_names = {
     # Bolsas
     '^BVSP': 'Ibovespa', '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^FCHI': 'CAC 40 (França)',
@@ -50,6 +45,7 @@ ticker_names = {
 }
 
 
+# --- FUNÇÃO CACHEADA PARA DADOS ETTJ ---
 @st.cache_data
 def get_ettj_data():
     hoje = dt.date.today()
@@ -107,6 +103,7 @@ def get_ettj_data():
     
     return dfs_por_curva
 
+# --- FUNÇÃO CACHEADA PARA DADOS YFINANCE (MODIFICADA) ---
 @st.cache_data
 def get_mercado_data(ticker_map):
     tickers = {
@@ -142,27 +139,30 @@ def get_mercado_data(ticker_map):
     data_diaria = data_diaria.ffill()
     data_diaria = data_diaria.dropna(how='all')
 
+    # Dicionários para os dados dos gráficos (renomeados)
     dataframes_mercado_renomeados = {}
     
+    # Lista para a tabela de performance
     performance_list = []
     
+    # Processa grupos e cálculos
     grupos_para_iterar = list(tickers.keys())
     
-    
+    # Dicionário temporário para cálculos
     dataframes_mercado_orig = {}
     for group_name, group_tickers in tickers.items():
         available_tickers = [t for t in group_tickers if t in data_diaria.columns]
         if available_tickers:
             dataframes_mercado_orig[group_name] = data_diaria[available_tickers].copy()
 
-  
+    # Cálculo CNY/BRL
     if 'Moedas_em_BRL' in dataframes_mercado_orig:
         df_moedas = dataframes_mercado_orig['Moedas_em_BRL']
         if 'BRL=X' in df_moedas.columns and 'CNY=X' in df_moedas.columns:
             df_moedas['CNYBRL=X'] = df_moedas['BRL=X'] / df_moedas['CNY=X']
             df_moedas.drop(columns=['CNY=X'], inplace=True)
 
-    
+    # Cálculo Crypto BRL
     if ('Moedas_em_BRL' in dataframes_mercado_orig and 
         'Crypto_USD' in dataframes_mercado_orig and 
         'BRL=X' in dataframes_mercado_orig['Moedas_em_BRL'].columns):
@@ -177,7 +177,7 @@ def get_mercado_data(ticker_map):
         grupos_para_iterar.append('Crypto_BRL') # Adiciona o novo grupo
         grupos_para_iterar.remove('Crypto_USD') # Remove o grupo antigo
 
-    
+    # --- 2. CÁLCULO DA TABELA DE PERFORMANCE ---
     for group_name in grupos_para_iterar:
         df = dataframes_mercado_orig[group_name]
         
@@ -214,13 +214,13 @@ def get_mercado_data(ticker_map):
     
     return dataframes_mercado_renomeados, performance_table
 
-
+# --- CARREGA OS DADOS (USANDO CACHE) ---
 try:
     dfs_por_curva = get_ettj_data()
     # Passa o ticker_names para a função
     dataframes_mercado, performance_table = get_mercado_data(ticker_names)
 
-   
+    # --- SEÇÃO 1: CURVAS DE JUROS (COM ALTERAÇÕES) ---
     st.header("Principais Curvas de Juros (ETTJ)")
     st.write("Evolução da curva em 3 datas (Ontem, Semana Passada, Mês Passado)")
     
@@ -252,10 +252,10 @@ try:
         
         st.altair_chart(chart, use_container_width=True)
 
-
+    # --- SEÇÃO 2: PERFORMANCE RECENTE (TABELONA) ---
     st.header("Performance Recente")
     
-
+    # Formatação da tabela
     formatters = {
         'Último': '{:,.2f}',
         'YoY %': '{:,.2%}',
@@ -264,7 +264,7 @@ try:
         'MTD %': '{:,.2%}'
     }
     
-    
+    # Separa por grupo
     grupos_performance = performance_table['Grupo'].unique()
     for group in grupos_performance:
         st.subheader(group.replace("_", " ")) # Ex: Moedas_em_BRL -> Moedas em BRL
@@ -278,14 +278,14 @@ try:
             use_container_width=True
         )
 
-  
+    # --- SEÇÃO 3: MERCADOS GLOBAIS (GRÁFICOS) ---
     st.header("Mercados Globais (YFinance - Último Ano)")
 
     for assunto, df_mercado in dataframes_mercado.items():
-       
+        # Renomeia o título do subheader
         st.subheader(assunto.replace("_", " "))
         
-    
+        # A lista de ativos agora tem os nomes corretos
         lista_de_ativos = df_mercado.columns
         
         if len(lista_de_ativos) > 0:
@@ -296,11 +296,11 @@ try:
             )
             
             if ativo_selecionado:
-               
+                # O gráfico agora usa o nome correto
                 st.line_chart(df_mercado[ativo_selecionado])
         else:
             st.write(f"Nenhum dado encontrado para {assunto}.")
 
 except Exception as e:
     st.error(f"Ocorreu um erro ao carregar os dados: {e}")
-    st.exception(e)
+    st.exception(e) # Mostra o traceback completo para debug
