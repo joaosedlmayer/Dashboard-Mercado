@@ -1,0 +1,5 @@
+pyettj
+datetime
+pandas
+yfinance
+streamlit
