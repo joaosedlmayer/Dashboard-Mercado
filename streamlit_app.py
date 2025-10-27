@@ -5,7 +5,7 @@ Created on Thu Oct 23 14:44:04 2025
 @author: joaos
 """
 
-import pyettj.ettj 
+import pyettj.ettj as ettj
 import datetime as dt 
 import pandas as pd 
 import yfinance as yf 
@@ -290,3 +290,4 @@ try:
 except Exception as e:
     st.error(f"Ocorreu um erro ao carregar os dados: {e}")
     st.exception(e)
+
